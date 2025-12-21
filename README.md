@@ -4,10 +4,7 @@ A small Codex CLI skill that nudges the agent to use `rope` (via a wrapper scrip
 
 ## Disclaimer
 
-Warning: I don't really know Rope, and I don't really know how to make Codex skills properly.
-I vibecoded this with codex until it worked well enough for my needs.
-
-So:
+This skill is under development!
 - it is intentionally pragmatic
 - it may have sharp edges
 - please treat it like a helpful power tool, not a polished library
