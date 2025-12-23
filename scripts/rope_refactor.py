@@ -1,4 +1,9 @@
-#!/usr/bin/env python3
+# /// script
+# dependencies = [
+#   "rope>=1.14,<1.15",
+# ]
+# ///
+
 """A small CLI wrapper around rope for mechanical refactors.
 
 Supported operations:
@@ -22,7 +27,6 @@ Run from anywhere; pass --project-root to point at the repo root.
 from __future__ import annotations
 
 import argparse
-import inspect
 import json
 import re
 import subprocess
@@ -52,18 +56,15 @@ def _import_rope_base():
     return Project
 
 
-
-
-
 def _print_rope_version() -> None:
     """Print rope version in a way that works even when rope.__version__ is missing."""
 
     try:
         from importlib.metadata import version
 
-        print(version('rope'))
+        print(version("rope"))
     except Exception:
-        print('rope not installed')
+        print("rope not installed")
 
 
 def _warn_rope_version() -> None:
@@ -72,14 +73,14 @@ def _warn_rope_version() -> None:
     try:
         from importlib.metadata import version
 
-        v = version('rope')
+        v = version("rope")
     except Exception:
         return
 
     # This skill is tested primarily against rope 1.14.x. Rope's public refactor APIs
     # have historically been unstable across versions, so warn outside that band.
     try:
-        parts = v.split('.')
+        parts = v.split(".")
         major = int(parts[0])
         minor = int(parts[1]) if len(parts) > 1 else 0
     except Exception:
@@ -93,16 +94,12 @@ def _warn_rope_version() -> None:
         )
 
 
-
-
-
-
 def _is_repo_root_marker(dir_path: Path) -> bool:
-    return (dir_path / '.git').exists()
+    return (dir_path / ".git").exists()
 
 
 def _is_python_project_marker(dir_path: Path) -> bool:
-    return any((dir_path / f).exists() for f in ['pyproject.toml', 'setup.cfg', 'setup.py'])
+    return any((dir_path / f).exists() for f in ["pyproject.toml", "setup.cfg", "setup.py"])
 
 
 def _auto_project_root(target_path: Path, *, fallback_root: Path) -> Path:
@@ -157,7 +154,7 @@ def _paths_to_scan_roots(project_root: Path, paths: list[Path]) -> list[str]:
 
         pkg_dir: Path | None = None
         while True:
-            if (cur / '__init__.py').exists():
+            if (cur / "__init__.py").exists():
                 pkg_dir = cur
                 break
             if cur == project_root or cur.parent == cur:
@@ -169,14 +166,14 @@ def _paths_to_scan_roots(project_root: Path, paths: list[Path]) -> list[str]:
 
         roots.add(str(pkg_dir.relative_to(project_root)))
 
-    root_list = sorted(roots, key=lambda s: (s.count('/'), len(s)))
+    root_list = sorted(roots, key=lambda s: (s.count("/"), len(s)))
     pruned: list[str] = []
     for r in root_list:
-        if any(r == x or r.startswith(x.rstrip('/') + '/') for x in pruned):
+        if any(r == x or r.startswith(x.rstrip("/") + "/") for x in pruned):
             continue
         pruned.append(r)
 
-    return pruned or ['.']
+    return pruned or ["."]
 
 
 def _rg_list_files(project_root: Path, *, needle: str) -> list[Path]:
@@ -184,7 +181,7 @@ def _rg_list_files(project_root: Path, *, needle: str) -> list[Path]:
 
     try:
         proc = subprocess.run(
-            ['rg', '-l', '-F', needle, '-g', '*.py', '.'],
+            ["rg", "-l", "-F", needle, "-g", "*.py", "."],
             cwd=str(project_root),
             check=False,
             capture_output=True,
@@ -209,9 +206,9 @@ def _python_list_files(project_root: Path, *, needle: str) -> list[Path]:
     """Fallback reference finder without rg (slower)."""
 
     hits: list[Path] = []
-    for p in project_root.rglob('*.py'):
+    for p in project_root.rglob("*.py"):
         try:
-            s = p.read_text(encoding='utf-8')
+            s = p.read_text(encoding="utf-8")
         except Exception:
             continue
         if needle in s:
@@ -243,13 +240,13 @@ def _python_file_resources(project_root: Path, roots: list[str]) -> list[str]:
         base = (project_root / r).resolve()
         if not base.exists():
             continue
-        if base.is_file() and base.suffix == '.py':
+        if base.is_file() and base.suffix == ".py":
             try:
                 files.append(str(base.relative_to(project_root)))
             except Exception:
                 pass
             continue
-        for p in sorted(base.rglob('*.py')):
+        for p in sorted(base.rglob("*.py")):
             try:
                 files.append(str(p.relative_to(project_root)))
             except Exception:
@@ -265,7 +262,6 @@ def _python_file_resources(project_root: Path, roots: list[str]) -> list[str]:
     return out
 
 
-
 def _file_to_dotted_module_name(project_root: Path, rel_file: str) -> str | None:
     """Best-effort conversion of a .py path (relative to project_root) to a dotted module name."""
 
@@ -275,21 +271,22 @@ def _file_to_dotted_module_name(project_root: Path, rel_file: str) -> str | None
     except Exception:
         return None
 
-    if p.suffix != '.py':
+    if p.suffix != ".py":
         return None
 
-    parts = list(rel.with_suffix('').parts)
+    parts = list(rel.with_suffix("").parts)
     if not parts:
         return None
 
     pkg_start = 0
     for i in range(len(parts)):
         d = project_root / Path(*parts[: i + 1])
-        if d.is_dir() and (d / '__init__.py').exists():
+        if d.is_dir() and (d / "__init__.py").exists():
             pkg_start = i
             break
 
-    return '.'.join(parts[pkg_start:])
+    return ".".join(parts[pkg_start:])
+
 
 def _open_project(Project, project_root: Path):
     """Open a rope Project using plain filesystem ops.
@@ -305,6 +302,7 @@ def _open_project(Project, project_root: Path):
         return Project(str(project_root), fscommands=FileSystemCommands())
     except Exception:
         return Project(str(project_root))
+
 
 def _print_changes(changes) -> None:
     # Rope changes objects vary, but most have these.
@@ -360,7 +358,7 @@ def _compute_offset(
 ) -> int:
     if offset is not None:
         if offset < 0 or offset >= len(text):
-            _die(f"--offset out of bounds (0..{len(text)-1})")
+            _die(f"--offset out of bounds (0..{len(text) - 1})")
         return offset
 
     # If caller provides --symbol without --pattern, build a safer pattern that
@@ -411,7 +409,14 @@ def _line_range_to_offsets(text: str, start_line: int, end_line: int) -> tuple[i
     return start_off, end_off
 
 
-def _move_module(*, project_root: Path, src: str, dest_package: str, scan_roots: list[str] | None, mode: Mode) -> None:
+def _move_module(
+    *,
+    project_root: Path,
+    src: str,
+    dest_package: str,
+    scan_roots: list[str] | None,
+    mode: Mode,
+) -> None:
     """Move a module file into another *package* and update imports/usages."""
 
     Project = _import_rope_base()
@@ -422,17 +427,17 @@ def _move_module(*, project_root: Path, src: str, dest_package: str, scan_roots:
     try:
         src_res, _src_text = _resource_text(project, src)
 
-        if not hasattr(rope_move, 'MoveModule'):
-            _die('Your rope version does not expose MoveModule; try upgrading rope.')
+        if not hasattr(rope_move, "MoveModule"):
+            _die("Your rope version does not expose MoveModule; try upgrading rope.")
 
         # Rope expects a destination folder Resource that is a Python package.
-        dest_relpath = dest_package.replace('.', '/')
+        dest_relpath = dest_package.replace(".", "/")
         try:
             dest_res = project.get_resource(dest_relpath)
         except Exception:
             _die(f"Destination package folder not found: {dest_relpath} (create it and add __init__.py)")
 
-        if not dest_res.is_folder() or not dest_res.has_child('__init__.py'):
+        if not dest_res.is_folder() or not dest_res.has_child("__init__.py"):
             _die(f"Destination must be a Python package folder with __init__.py: {dest_relpath}")
 
         mover = rope_move.MoveModule(project, src_res)
@@ -442,7 +447,14 @@ def _move_module(*, project_root: Path, src: str, dest_package: str, scan_roots:
         project.close()
 
 
-def _rename_module(*, project_root: Path, src: str, new_name: str, scan_roots: list[str] | None, mode: Mode) -> None:
+def _rename_module(
+    *,
+    project_root: Path,
+    src: str,
+    new_name: str,
+    scan_roots: list[str] | None,
+    mode: Mode,
+) -> None:
     """Rename a module file (e.g. pkg/a.py -> pkg/alpha.py) and update imports/usages.
 
     Rope does not expose a stable public "RenameModule" API across versions.
@@ -459,8 +471,8 @@ def _rename_module(*, project_root: Path, src: str, new_name: str, scan_roots: l
     project = _open_project(Project, project_root)
     try:
         src_res, _src_text = _resource_text(project, src)
-        if src_res.is_folder() or not src_res.path.endswith('.py'):
-            _die('rename-module expects a .py file path')
+        if src_res.is_folder() or not src_res.path.endswith(".py"):
+            _die("rename-module expects a .py file path")
 
         old_basename = src_res.name[:-3]
 
@@ -542,7 +554,7 @@ def _rename_module(*, project_root: Path, src: str, new_name: str, scan_roots: l
             if source != module.read():
                 changes.add_change(ChangeContents(module, source))
 
-        new_path = str(Path(src).with_name(new_name + '.py'))
+        new_path = str(Path(src).with_name(new_name + ".py"))
         changes.add_change(MoveResource(src_res, new_path, exact=True))
 
         _do_or_preview(project, changes, mode)
@@ -633,9 +645,7 @@ def _extract(
             _die("kind must be 'function' or 'method'")
 
         if extractor_cls is None:
-            _die(
-                "Could not find an extract refactoring class in rope.refactor.extract; try upgrading rope."
-            )
+            _die("Could not find an extract refactoring class in rope.refactor.extract; try upgrading rope.")
 
         try:
             extractor = extractor_cls(project, res, start_off, end_off)
@@ -703,9 +713,7 @@ def _inline(
             _die("kind must be 'variable' or 'method'")
 
         if inliner_cls is None:
-            _die(
-                "Could not find an inline refactoring class in rope.refactor.inline; try upgrading rope."
-            )
+            _die("Could not find an inline refactoring class in rope.refactor.inline; try upgrading rope.")
 
         try:
             inliner = inliner_cls(project, res, off)
@@ -740,9 +748,7 @@ def _organize_imports(
     project = _open_project(Project, project_root)
     try:
         if not hasattr(rope_importutils, "ImportOrganizer"):
-            _die(
-                "Your rope version does not expose ImportOrganizer (rope.refactor.importutils); try upgrading rope."
-            )
+            _die("Your rope version does not expose ImportOrganizer (rope.refactor.importutils); try upgrading rope.")
 
         organizer = rope_importutils.ImportOrganizer(project)
 
@@ -765,9 +771,7 @@ def _organize_imports(
                 else:
                     print("Dry-run only (would rewrite file contents).")
             else:
-                _die(
-                    f"Unexpected ImportOrganizer.organize_imports() return type: {type(result)}"
-                )
+                _die(f"Unexpected ImportOrganizer.organize_imports() return type: {type(result)}")
     finally:
         project.close()
 
@@ -903,10 +907,6 @@ def _run_batch(*, project_root: Path, map_file: Path, mode: Mode) -> None:
             _die(f"Unknown batch op: {op_name}")
 
 
-
-
-
-
 def _self_test() -> None:
     """Smoke-test the wrapper against a temporary toy project.
 
@@ -917,13 +917,13 @@ def _self_test() -> None:
     # Ensure rope is importable and print version warning if needed.
     Project = _import_rope_base()
 
-    with tempfile.TemporaryDirectory(prefix='rope_refactor_self_test_') as td:
-        root = Path(td) / 'proj'
-        pkg = root / 'pkg'
+    with tempfile.TemporaryDirectory(prefix="rope_refactor_self_test_") as td:
+        root = Path(td) / "proj"
+        pkg = root / "pkg"
         pkg.mkdir(parents=True)
-        (pkg / '__init__.py').write_text('', encoding='utf-8')
+        (pkg / "__init__.py").write_text("", encoding="utf-8")
 
-        (pkg / 'a.py').write_text(
+        (pkg / "a.py").write_text(
             """
 class OldName:
     def __init__(self, x: int) -> None:
@@ -937,10 +937,10 @@ def make() -> OldName:
     temp = OldName(21)
     return temp
 """.lstrip(),
-            encoding='utf-8',
+            encoding="utf-8",
         )
 
-        (pkg / 'b.py').write_text(
+        (pkg / "b.py").write_text(
             """
 from pkg.a import OldName, make
 
@@ -951,11 +951,11 @@ def use() -> int:
     y = make().double()
     return x + y
 """.lstrip(),
-            encoding='utf-8',
+            encoding="utf-8",
         )
 
         # Independent file for extract/inline tests.
-        (pkg / 'extras.py').write_text(
+        (pkg / "extras.py").write_text(
             """
 from __future__ import annotations
 
@@ -966,91 +966,92 @@ def f(n: int) -> int:
     z = x + y
     return z
 """.lstrip(),
-            encoding='utf-8',
+            encoding="utf-8",
         )
 
         # 1) rename-symbol (apply)
         _rename_symbol(
             project_root=root,
-            file='pkg/a.py',
-            new_name='NewName',
+            file="pkg/a.py",
+            new_name="NewName",
             offset=None,
             pattern=None,
             occurrence=1,
             group=0,
-            symbol='OldName',
-            context='class',
+            symbol="OldName",
+            context="class",
             scan_roots=None,
             mode=Mode(apply=True),
         )
-        assert 'class NewName' in (pkg / 'a.py').read_text(encoding='utf-8')
-        assert 'from pkg.a import NewName' in (pkg / 'b.py').read_text(encoding='utf-8')
+        assert "class NewName" in (pkg / "a.py").read_text(encoding="utf-8")
+        assert "from pkg.a import NewName" in (pkg / "b.py").read_text(encoding="utf-8")
 
         # 2) rename-module (apply)
         _rename_module(
             project_root=root,
-            src='pkg/a.py',
-            new_name='alpha',
+            src="pkg/a.py",
+            new_name="alpha",
             scan_roots=None,
             mode=Mode(apply=True),
         )
-        assert (pkg / 'alpha.py').exists()
-        assert 'from pkg.alpha import NewName' in (pkg / 'b.py').read_text(encoding='utf-8')
+        assert (pkg / "alpha.py").exists()
+        assert "from pkg.alpha import NewName" in (pkg / "b.py").read_text(encoding="utf-8")
 
         # 3) move-module (apply)
-        subpkg = pkg / 'subpkg'
+        subpkg = pkg / "subpkg"
         subpkg.mkdir(parents=True)
-        (subpkg / '__init__.py').write_text('', encoding='utf-8')
+        (subpkg / "__init__.py").write_text("", encoding="utf-8")
         _move_module(
             project_root=root,
-            src='pkg/alpha.py',
-            dest_package='pkg.subpkg',
+            src="pkg/alpha.py",
+            dest_package="pkg.subpkg",
             scan_roots=None,
             mode=Mode(apply=True),
         )
-        assert (subpkg / 'alpha.py').exists()
-        assert 'from pkg.subpkg.alpha import NewName' in (pkg / 'b.py').read_text(encoding='utf-8')
+        assert (subpkg / "alpha.py").exists()
+        assert "from pkg.subpkg.alpha import NewName" in (pkg / "b.py").read_text(encoding="utf-8")
 
         # 4) organize-imports (dry-run; should not crash)
-        _organize_imports(project_root=root, files=['pkg/b.py'], mode=Mode(apply=False))
+        _organize_imports(project_root=root, files=["pkg/b.py"], mode=Mode(apply=False))
 
         # 5) inline-variable (dry-run; should not crash)
         _inline(
             project_root=root,
-            file='pkg/extras.py',
+            file="pkg/extras.py",
             offset=None,
             pattern=r"\bx\s*=",
             occurrence=1,
             group=0,
             symbol=None,
-            context='any',
-            kind='variable',
+            context="any",
+            kind="variable",
             mode=Mode(apply=False),
         )
 
         # 6) extract-function (dry-run; should not crash)
         _extract(
             project_root=root,
-            file='pkg/extras.py',
-            new_name='g',
+            file="pkg/extras.py",
+            new_name="g",
             start_line=6,
             end_line=7,
-            kind='function',
+            kind="function",
             mode=Mode(apply=False),
         )
         # 7) batch (dry-run)
-        ops_path = Path(td) / 'ops.json'
+        ops_path = Path(td) / "ops.json"
         ops_path.write_text(
-            '''[
+            """[
   {"op": "rename-symbol", "file": "pkg/subpkg/alpha.py", "symbol": "NewName", "context": "class", "new_name": "RenamedAgain"},
   {"op": "organize-imports", "files": ["pkg/b.py"]}
 ]
-''',
-            encoding='utf-8',
+""",
+            encoding="utf-8",
         )
         _run_batch(project_root=root, map_file=ops_path, mode=Mode(apply=False))
 
-    print('Self-test passed.')
+    print("Self-test passed.")
+
 
 def _normalize_global_args(argv: list[str]) -> list[str]:
     """Allow global flags (e.g. --project-root/--apply) to appear after subcommands.
@@ -1102,6 +1103,7 @@ def _normalize_global_args(argv: list[str]) -> list[str]:
 
     return reordered + rest
 
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(prog="rope_refactor.py")
     ap.add_argument(
@@ -1109,7 +1111,6 @@ def main(argv: list[str]) -> int:
         default=".",
         help="Path to the Python project root (where you'd run mypy/pytest).",
     )
-
 
     ap.add_argument(
         "--auto-project-root",
@@ -1134,7 +1135,6 @@ def main(argv: list[str]) -> int:
 
     sp = ap.add_subparsers(dest="cmd", required=True)
     sp.add_parser("version", help="Print rope version")
-
 
     p_move = sp.add_parser("move-module", help="Move a module into another package")
     p_move.add_argument(
@@ -1219,7 +1219,10 @@ def main(argv: list[str]) -> int:
     p_iv = sp.add_parser("inline-variable", help="Inline a variable at the given offset/pattern")
     _add_location_args(p_iv)
 
-    p_im = sp.add_parser("inline-method", help="Inline a method/function call at the given offset/pattern")
+    p_im = sp.add_parser(
+        "inline-method",
+        help="Inline a method/function call at the given offset/pattern",
+    )
     _add_location_args(p_im)
 
     p_org = sp.add_parser("organize-imports", help="Organize imports for one or more files")
@@ -1300,9 +1303,8 @@ def main(argv: list[str]) -> int:
             scan_roots = _auto_scan_roots(project_root, needles=needles, include_paths=[target_hint])
             print("Auto scan roots: " + ", ".join(scan_roots))
 
-
-# If project_root was auto-adjusted, rewrite file/src args to be relative to it.
-    normalized_file = getattr(args, 'file', None)
+    # If project_root was auto-adjusted, rewrite file/src args to be relative to it.
+    normalized_file = getattr(args, "file", None)
     if normalized_file:
         try:
             abs_file = (base_project_root / normalized_file).resolve()
@@ -1310,7 +1312,7 @@ def main(argv: list[str]) -> int:
         except Exception:
             pass
 
-    normalized_src = getattr(args, 'src', None)
+    normalized_src = getattr(args, "src", None)
     if normalized_src:
         try:
             abs_src = (base_project_root / normalized_src).resolve()

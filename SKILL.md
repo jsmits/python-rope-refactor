@@ -7,7 +7,7 @@ description: Rope-first workflow for ANY mechanical Python rename/move (function
 
 ## Default policy (rope-first)
 
-When the user asks for mechanical Python refactors like **move module**, **rename module**, or **rename class/function/symbol**, default to running rope via `scripts/rope_refactor.py` rather than manually editing imports/usages.
+When the user asks for mechanical Python refactors like **move module**, **rename module**, or **rename class/function/symbol**, default to running rope via `uv run scripts/rope_refactor.py` rather than manually editing imports/usages.
 
 Workflow:
 - run with `--dry-run`
@@ -25,28 +25,14 @@ This skill provides a small CLI wrapper around `rope` refactorings with a safe w
 ## Quick start
 
 1) Ensure you are in the repo you want to refactor.
-2) Create/activate a venv and install rope:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -U pip
-python -m pip install 'rope>=1.14,<2'
-
-Version check: `rope.__version__` may not exist. Use one of:
-- `python scripts/rope_refactor.py version`
-- `python -c "from importlib.metadata import version; print(version('rope'))"`
-
-
-(Recommended) Pin rope: this skill is tested with rope 1.14.x and rope APIs can differ across versions.
-```
+2) Make sure that `uv` is installed.
 
 Tip: in large monorepos, prefer `--auto-project-root` (and optionally `--auto-scan-roots`) to avoid rope scanning the entire repo.
 
 Example (paths can be relative to repo root; the tool will re-root them):
 
 ```bash
-python scripts/rope_refactor.py \
+uv run scripts/rope_refactor.py \
   rename-symbol \
   --project-root . \
   --auto-project-root \
@@ -68,14 +54,14 @@ If roots are too narrow (missed references):
 3) Run a dry-run first:
 
 ```bash
-python scripts/rope_refactor.py --help
-python scripts/rope_refactor.py move-module --help
+uv run scripts/rope_refactor.py --help
+uv run scripts/rope_refactor.py move-module --help
 ```
 
 4) Apply, then review:
 
 ```bash
-python scripts/rope_refactor.py ... --apply
+uv run scripts/rope_refactor.py ... --apply
 git diff
 ```
 
@@ -88,7 +74,7 @@ Example: move `pkg/old_mod.py` into the `pkg/newpkg` package.
 Destination package must exist on disk and include `__init__.py` (rope requires a real package folder).
 
 ```bash
-python scripts/rope_refactor.py \
+uv run scripts/rope_refactor.py \
   move-module \
   --project-root . \
   --auto-project-root \
@@ -96,7 +82,7 @@ python scripts/rope_refactor.py \
   --dest-package pkg.newpkg \
   --dry-run
 
-python scripts/rope_refactor.py \
+uv run scripts/rope_refactor.py \
   move-module \
   --project-root . \
   --auto-project-root \
@@ -110,7 +96,7 @@ python scripts/rope_refactor.py \
 Example: rename `pkg/foo.py` to `pkg/bar.py` (module name `foo` -> `bar`).
 
 ```bash
-python scripts/rope_refactor.py \
+uv run scripts/rope_refactor.py \
   rename-module \
   --project-root . \
   --auto-project-root \
@@ -118,7 +104,7 @@ python scripts/rope_refactor.py \
   --new-name bar \
   --dry-run
 
-python scripts/rope_refactor.py \
+uv run scripts/rope_refactor.py \
   rename-module \
   --project-root . \
   --auto-project-root \
@@ -139,7 +125,7 @@ This wrapper lets you target the symbol precisely:
 Example: rename a class `OldName` -> `NewName` using `--symbol` targeting (recommended):
 
 ```bash
-python scripts/rope_refactor.py \
+uv run scripts/rope_refactor.py \
   rename-symbol \
   --project-root . \
   --auto-project-root \
@@ -153,7 +139,7 @@ python scripts/rope_refactor.py \
 Example: rename a class `OldName` -> `NewName` using a pattern:
 
 ```bash
-python scripts/rope_refactor.py \
+uv run scripts/rope_refactor.py \
   rename-symbol \
   --project-root . \
   --auto-project-root \
@@ -162,7 +148,7 @@ python scripts/rope_refactor.py \
   --pattern 'class\\s+OldName\\b' \
   --dry-run
 
-python scripts/rope_refactor.py \
+uv run scripts/rope_refactor.py \
   rename-symbol \
   --project-root . \
   --auto-project-root \
@@ -178,7 +164,7 @@ python scripts/rope_refactor.py \
 Extract a line range into a new function:
 
 ```bash
-python scripts/rope_refactor.py \
+uv run scripts/rope_refactor.py \
   extract-function \
   --project-root . \
   --auto-project-root \
@@ -192,7 +178,7 @@ python scripts/rope_refactor.py \
 Extract a line range into a method:
 
 ```bash
-python scripts/rope_refactor.py \
+uv run scripts/rope_refactor.py \
   extract-method \
   --project-root . \
   --auto-project-root \
@@ -208,7 +194,7 @@ python scripts/rope_refactor.py \
 Inline a variable at a specific definition site using `--symbol` targeting:
 
 ```bash
-python scripts/rope_refactor.py \
+uv run scripts/rope_refactor.py \
   inline-variable \
   --project-root . \
   --auto-project-root \
@@ -221,7 +207,7 @@ python scripts/rope_refactor.py \
 ### Organize imports
 
 ```bash
-python scripts/rope_refactor.py \
+uv run scripts/rope_refactor.py \
   organize-imports \
   --project-root . \
   --auto-project-root \
@@ -243,7 +229,7 @@ cat > /tmp/rope_ops.json <<'JSON'
 ]
 JSON
 
-python scripts/rope_refactor.py \
+uv run scripts/rope_refactor.py \
   batch \
   --project-root . \
   --auto-project-root \
