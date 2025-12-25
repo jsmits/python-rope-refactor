@@ -34,7 +34,17 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
+
+import rope.refactor.extract as rope_extract
+import rope.refactor.inline as rope_inline
+import rope.refactor.move as rope_move
+import rope.refactor.rename as rope_rename
+from rope.base import libutils, pynames
+from rope.base.change import ChangeContents, ChangeSet, MoveResource
+from rope.base.fscommands import FileSystemCommands
+from rope.base.project import Project
+from rope.refactor import importutils
 
 
 @dataclass(frozen=True)
@@ -45,53 +55,6 @@ class Mode:
 def _die(msg: str) -> None:
     print(msg, file=sys.stderr)
     raise SystemExit(2)
-
-
-def _import_rope_base():
-    try:
-        from rope.base.project import Project
-    except ModuleNotFoundError as e:
-        _die(f"Missing dependency: {e}. Install with: python -m pip install rope")
-    _warn_rope_version()
-    return Project
-
-
-def _print_rope_version() -> None:
-    """Print rope version in a way that works even when rope.__version__ is missing."""
-
-    try:
-        from importlib.metadata import version
-
-        print(version("rope"))
-    except Exception:
-        print("rope not installed")
-
-
-def _warn_rope_version() -> None:
-    """Best-effort warning if the installed rope version is outside known-good ranges."""
-
-    try:
-        from importlib.metadata import version
-
-        v = version("rope")
-    except Exception:
-        return
-
-    # This skill is tested primarily against rope 1.14.x. Rope's public refactor APIs
-    # have historically been unstable across versions, so warn outside that band.
-    try:
-        parts = v.split(".")
-        major = int(parts[0])
-        minor = int(parts[1]) if len(parts) > 1 else 0
-    except Exception:
-        return
-
-    if major != 1 or minor < 14:
-        print(
-            f"warning: rope version {v} detected; this skill is tested with rope>=1.14,<2.0. ",
-            "If you hit refactor errors, consider: python -m pip install 'rope>=1.14,<2'",
-            file=sys.stderr,
-        )
 
 
 def _is_repo_root_marker(dir_path: Path) -> bool:
@@ -288,7 +251,7 @@ def _file_to_dotted_module_name(project_root: Path, rel_file: str) -> str | None
     return ".".join(parts[pkg_start:])
 
 
-def _open_project(Project, project_root: Path):
+def _open_project(project_root: Path) -> Project:
     """Open a rope Project using plain filesystem ops.
 
     Rope will try to use VCS-aware moves (e.g. `git mv`) when it detects a VCS.
@@ -296,12 +259,7 @@ def _open_project(Project, project_root: Path):
     usable in scratch dirs and partially-tracked repos.
     """
 
-    try:
-        from rope.base.fscommands import FileSystemCommands
-
-        return Project(str(project_root), fscommands=FileSystemCommands())
-    except Exception:
-        return Project(str(project_root))
+    return Project(str(project_root), fscommands=FileSystemCommands())
 
 
 def _print_changes(changes) -> None:
@@ -385,11 +343,9 @@ def _compute_offset(
         _die(f"Pattern not found (occurrence {occurrence}): {pattern!r}")
 
     try:
-        off = m.start(group)
+        return m.start(group)
     except IndexError:
         _die(f"Match group {group} does not exist for pattern: {pattern!r}")
-
-    return off
 
 
 def _line_range_to_offsets(text: str, start_line: int, end_line: int) -> tuple[int, int]:
@@ -419,11 +375,8 @@ def _move_module(
 ) -> None:
     """Move a module file into another *package* and update imports/usages."""
 
-    Project = _import_rope_base()
+    project = _open_project(project_root)
 
-    import rope.refactor.move as rope_move
-
-    project = _open_project(Project, project_root)
     try:
         src_res, _src_text = _resource_text(project, src)
 
@@ -461,14 +414,8 @@ def _rename_module(
     This implementation uses rope's import analysis and occurrence finding.
     """
 
-    Project = _import_rope_base()
+    project = _open_project(project_root)
 
-    import rope.refactor.move as rope_move
-    from rope.base import libutils, pynames
-    from rope.base.change import ChangeContents, ChangeSet, MoveResource
-    from rope.refactor import importutils
-
-    project = _open_project(Project, project_root)
     try:
         src_res, _src_text = _resource_text(project, src)
         if src_res.is_folder() or not src_res.path.endswith(".py"):
@@ -576,10 +523,8 @@ def _rename_symbol(
     scan_roots: list[str] | None,
     mode: Mode,
 ) -> None:
-    Project = _import_rope_base()
-    import rope.refactor.rename as rope_rename
+    project = _open_project(project_root)
 
-    project = _open_project(Project, project_root)
     try:
         res, text = _resource_text(project, file)
         off = _compute_offset(
@@ -617,14 +562,8 @@ def _extract(
     kind: str,
     mode: Mode,
 ) -> None:
-    Project = _import_rope_base()
+    project = _open_project(project_root)
 
-    try:
-        import rope.refactor.extract as rope_extract
-    except Exception as e:
-        _die(f"Your rope install does not support extract refactors: {e}")
-
-    project = _open_project(Project, project_root)
     try:
         res, text = _resource_text(project, file)
         start_off, end_off = _line_range_to_offsets(text, start_line, end_line)
@@ -678,14 +617,8 @@ def _inline(
     kind: str,
     mode: Mode,
 ) -> None:
-    Project = _import_rope_base()
+    project = _open_project(project_root)
 
-    try:
-        import rope.refactor.inline as rope_inline
-    except Exception as e:
-        _die(f"Your rope install does not support inline refactors: {e}")
-
-    project = _open_project(Project, project_root)
     try:
         res, text = _resource_text(project, file)
         off = _compute_offset(
@@ -738,19 +671,10 @@ def _organize_imports(
     files: list[str],
     mode: Mode,
 ) -> None:
-    Project = _import_rope_base()
+    project = _open_project(project_root)
 
     try:
-        import rope.refactor.importutils as rope_importutils
-    except Exception as e:
-        _die(f"Your rope install does not support importutils: {e}")
-
-    project = _open_project(Project, project_root)
-    try:
-        if not hasattr(rope_importutils, "ImportOrganizer"):
-            _die("Your rope version does not expose ImportOrganizer (rope.refactor.importutils); try upgrading rope.")
-
-        organizer = rope_importutils.ImportOrganizer(project)
+        organizer = importutils.ImportOrganizer(project)
 
         for relpath in files:
             res = project.get_resource(relpath)
@@ -913,9 +837,6 @@ def _self_test() -> None:
     This validates that the wrapper works end-to-end with the currently installed
     rope, without requiring a real repo.
     """
-
-    # Ensure rope is importable and print version warning if needed.
-    Project = _import_rope_base()
 
     with tempfile.TemporaryDirectory(prefix="rope_refactor_self_test_") as td:
         root = Path(td) / "proj"
@@ -1319,10 +1240,6 @@ def main(argv: list[str]) -> int:
             normalized_src = str(abs_src.relative_to(project_root))
         except Exception:
             pass
-
-    if args.cmd == "version":
-        _print_rope_version()
-        return 0
 
     if args.cmd == "move-module":
         _move_module(
